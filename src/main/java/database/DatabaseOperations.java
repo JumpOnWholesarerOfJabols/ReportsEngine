@@ -1,2 +1,5 @@
-package main.java.database;public interface DatabaseOperations {
+package main.java.database;
+
+public interface DatabaseOperations {
+
 }
