@@ -9,6 +9,7 @@ import java.util.function.Predicate;
 public class DatabaseManager {
 
     private static final String reportsFilePath = "src/main/resources/reports.txt";
+    ReportsDatabase reportsDatabase = new ReportsDatabase(reportsFilePath);
 
 
     /*Tak ja to przynajmniej widzę. Dostęp do bazy danych zrobić pośredni, bo:
