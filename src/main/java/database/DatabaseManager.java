@@ -9,7 +9,7 @@ import java.util.function.Predicate;
 public class DatabaseManager {
 
     private static final String reportsFilePath = "src/main/resources/reports.txt";
-    ReportsDatabase reportsDatabase = new ReportsDatabase(reportsFilePath);
+    DatabaseOperations<Report> reportsDatabase = new ReportsDatabase(reportsFilePath);
 
 
     /*Tak ja to przynajmniej widzę. Dostęp do bazy danych zrobić pośredni, bo:
@@ -33,16 +33,12 @@ public class DatabaseManager {
         List<T> getSorted(Comparator<T> comparator);
 
         List<T> getFiltered(Predicate<T> filter);
-
     }
 
     private static class ReportsDatabase implements DatabaseOperations<Report> {
-
         private List<Report> data;
-        private String path;
 
         public ReportsDatabase(String path) {
-            this.path = path;
             data = importDataFromFile(path);
         }
 
@@ -52,11 +48,11 @@ public class DatabaseManager {
             try (ObjectInputStream inputStream = new ObjectInputStream(new FileInputStream(path))) {
                 var object = inputStream.readObject();
 
-                if (object instanceof List && !((List<?>) object).isEmpty() && ((List<?>) object).getFirst() instanceof Report) {
-                    return (List<Report>) object;
+                if (object instanceof List list && !list.isEmpty() && list.getFirst() instanceof Report) {
+                    return list;
                 }
             } catch (ClassNotFoundException | IOException e) {
-                System.out.println(e.getMessage());
+                e.printStackTrace();
             }
             return new ArrayList<>();
         }
@@ -67,7 +63,7 @@ public class DatabaseManager {
                 outputStream.writeObject(data);
                 return true;
             } catch (IOException e) {
-                System.out.println(e.getMessage());
+                e.printStackTrace();
                 return false;
             }
         }
@@ -101,12 +97,5 @@ public class DatabaseManager {
         public List<Report> getFiltered(Predicate<Report> filter) {
             return data.stream().filter(filter).toList();
         }
-
-
-    }
-
-
-    public static void main(String[] args) {
-        
     }
 }
