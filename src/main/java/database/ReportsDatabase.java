@@ -249,6 +249,43 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
         }
     }
 
+    private static class SortMethods {
+
+        private static Comparator<Report> sortByUserId() {
+            return Comparator.comparingInt(Report::getUserId);
+        }
+
+        private static Comparator<Report> sortByTitle() {
+            return Comparator.comparing(Report::getTitle);
+        }
+
+        private static Comparator<Report> sortByAssignmentWorkerId() {
+            return Comparator.comparingInt(Report::getAssignmentWorkerID);
+        }
+
+        private static Comparator<Report> sortByStatus() {
+            return Comparator.comparing(Report::getStatus);
+        }
+
+        private static Comparator<Report> sortByDate() {
+            return Comparator.comparing(Report::getDate);
+        }
+
+        private static Comparator<Report> reversed(Comparator<Report> comparator) {
+            return comparator.reversed();
+        }
+
+        private static Comparator<Report> combinedSort(Comparator<Report>... comparators) {
+            Comparator<Report> combinedComparator = (report1, report2) -> 0;
+
+            for (Comparator<Report> comparator : comparators) {
+                combinedComparator = combinedComparator.thenComparing(comparator);
+            }
+
+            return combinedComparator;
+        }
+    }
+
 
     public static void main(String[] args) {
 
@@ -281,6 +318,9 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
                 ),map);
         System.out.println("-".repeat(20));
         filtered.forEach((k,v) -> System.out.println(v + " - " + k.toString()));
+        System.out.println("-".repeat(20));
+        var sorted = reportsDatabase.getSorted(ReportsDatabase.SortMethods.sortByUserId(),map);
+        sorted.forEach((k,v) -> System.out.println(k + " - " + v.toString()));
         System.out.println("-".repeat(20));
 
                 map.forEach((k,v) -> System.out.println(v + " - " + k.toString()));
