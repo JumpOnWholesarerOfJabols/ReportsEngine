@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Predicate;
 
 public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
 
@@ -17,25 +18,31 @@ public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
 
 
 
-
-
     private static class ReportsFileManager implements FileManager<Report> {
 
         private static final String folderPath = "src/main/resources/reports/";
 
         private final Path path = Paths.get(folderPath);
-        private List<String> filesList = new ArrayList<>(importFilesList(path));
+        private final List<String> filesList = new ArrayList<>(importFilesList(path));
 
+
+        private static String makeFilePathFromId(int id){
+            return folderPath+id+".dat";
+        }
 
         private boolean containsId(int id){
-            return false;
+            refreshFilesList();
+            return filesList.contains(makeFilePathFromId(id));
+        }
+
+        private void refreshFilesList(){
+            filesList.clear();
+            filesList.addAll(importFilesList(path));
         }
 
         @Override
         public List<Report> importDatabase() {
-            List<Report> reports = new ArrayList<>();
-            reports = filesList.stream().map(this::importItem).filter(Objects::nonNull).toList();
-            return reports;
+            return filesList.stream().map(this::importItem).filter(Objects::nonNull).toList();
         }
 
         @Override
@@ -45,21 +52,24 @@ public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
 
         @Override
         public void clearDatabase() {
-            filesList.forEach(this::deleteItem);
+            List<String> filesToDelete = new ArrayList<>(filesList); //nie wiem dlaczego bez tego nie działa
+            filesToDelete.forEach(this::deleteItem);
+            refreshFilesList();
         }
 
         @Override
         public void exportItem(Report item) {
             int id = item.getReportId();
-            Path itemPath = Paths.get(folderPath + id + ".dat");
+            String filename = makeFilePathFromId(id);
+            Path itemPath = Paths.get(filename);
 
             try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(itemPath.toFile()))){
                 out.writeObject(item);
+                filesList.add(filename);
                 //logi - wyeksportowano item
             } catch (IOException e) {
                 //logi - blad podczas eksportu itemu
             }
-            
         }
 
 
@@ -68,8 +78,8 @@ public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
 
             Path reportPath = Paths.get(path);
 
-            if (!filesList.contains(path)){
-                //logi że brak pliku
+            if (!Files.exists(reportPath)) {
+                //logi - że brak pliku
                 return null;
             }
 
@@ -84,20 +94,22 @@ public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
 
         @Override
         public void deleteItem(String path) {
-            if (!filesList.contains(path)){
-                //logi że brak pliku
+            Path reportPath = Paths.get(path);
+
+            if (!Files.exists(reportPath)) {
+                //logi - że brak pliku
+                return;
             }
 
             try {
-                Files.delete(Path.of(path));
+                Files.delete(reportPath);
+                filesList.remove(path);
                 //logi ze usuwamy plik
             } catch (IOException e) {
-                // logi ze blad
+                // logi ze jakiś blad
             }
-
         }
     }
-
 
     public static void main(String[] args) {
 
@@ -113,6 +125,15 @@ public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
         reportsFileManager.exportItem(new Report(56,21,"COSIK", "DASASD"));
         reportsFileManager.exportItem(new Report(12,21,"COSIK", "DASASD"));
 
+
+        List<Report> reports = reportsFileManager.importDatabase();
+        reports.forEach(System.out::println);
+
+
+        reportsFileManager.refreshFilesList();
+        reportsFileManager.clearDatabase();
+
+
         try {
             List<String> nazwy = Files.list(path).map(Path::toString).toList();
             nazwy.forEach(System.out::println);
@@ -120,7 +141,8 @@ public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
             throw new RuntimeException(e);
         }
 
-        List<Report> reports = reportsFileManager.importDatabase();
+
+
 
         reportsFileManager.clearDatabase();
 
@@ -130,5 +152,7 @@ public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
 
 
 
+
+        //TUTAJ CHYBA WSZYSTKO DZIAŁA
     }
 }
