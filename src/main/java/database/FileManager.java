@@ -1,9 +1,12 @@
 package main.java.database;
 
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.AbstractMap;
 import java.util.List;
+import java.util.Map;
 
 public interface FileManager<T> {
 
@@ -20,17 +23,17 @@ public interface FileManager<T> {
         }
     }
 
-    List<T> importDatabase();
+    Map<Integer,T> importDatabase();
 
-    void exportDatabase(List<T> data);
+    void exportDatabase(Map<Integer,T> data);
 
     void clearDatabase();
 
-    void exportItem(T item);
+    void exportItem(int key,T item);
 
-    T importItem(String path);
+    AbstractMap.SimpleEntry<Integer, T> importItem(String path);
 
-    void deleteItem(String path);
+    void deleteItem(int id);
 
 
 }

@@ -1,29 +1,35 @@
 package main.java.database;
 
+import main.java.classes.Report;
+
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 public interface DatabaseOperations<T> {
-    List<T> importDataFromFile();
+    Map<Integer, T> importDataFromFile();
 
     void exportDataToFile();
 
     void addItemToDatabase(T item);
 
-    void removeItemFromDatabase(T item);
+    void addItemToDatabase(int id,T item);
+
+    void removeItemFromDatabase(int id);
 
     T getItemFromDatabase(int id);
 
-    void updateItemInDatabase(T item);
+    void updateItemInDatabase(int id,T item);
 
     void clearDatabase();
 
-    List<T> getAll();
+    Map<Integer, T> getAll();
 
-    List<T> getSorted(Comparator<T> comparator);
+    LinkedHashMap<Integer, T> getSorted(Comparator<T> comparator, Map<Integer, T> map);
 
-    List<T> getFiltered(Predicate<T> filter);
+    Map<Integer, T>  getFiltered(Predicate<T> filter, Map<Integer, T> map);
 
     boolean checkDuplicate(int id);
 }

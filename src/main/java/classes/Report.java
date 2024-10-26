@@ -8,7 +8,6 @@ public class Report implements Serializable {
 
     public enum reportStatus{OPEN,ASSIGNED,CLOSED}
 
-    private final int reportId;
     private final int userId;
     private String title;
     private String description;
@@ -21,18 +20,13 @@ public class Report implements Serializable {
         return dayMonthYear.format(new Date());
     }
 
-    public Report(int reportId, int userID, String title, String description) {
-        this.reportId = reportId;
+    public Report(int userID, String title, String description) {
         this.userId = userID;
         this.title = title;
         this.description = description;
         this.assignmentWorkerId = -1;
         this.status = reportStatus.OPEN;
         this.date = getCurrentDate();
-    }
-
-    public int getReportId() {
-        return reportId;
     }
 
     public int getUserId() {
@@ -77,6 +71,6 @@ public class Report implements Serializable {
 
     @Override
     public String toString() {
-        return reportId + " - " + userId + " - " + title + " - " + description;
+        return userId + " - " + title + " - " + description;
     }
 }

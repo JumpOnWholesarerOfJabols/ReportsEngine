@@ -7,17 +7,23 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 public class ReportsDatabase implements DatabaseOperations<Report> {
 
     private static final ReportsFileManager reportsFileManager = new ReportsFileManager();
+    private static int ID = 1;
 
-    private final List<Report> data = new ArrayList<>(importDataFromFile());
+    private final HashMap<Integer,Report> data = new HashMap<>(importDataFromFile());
 
     @Override
-    public List<Report> importDataFromFile() {
-        return reportsFileManager.importDatabase();
+    public Map<Integer,Report> importDataFromFile() {
+        Map<Integer,Report> map = reportsFileManager.importDatabase();
+        ID = map.keySet().stream().max(Integer::compareTo).orElse(0) + 1;
+
+        return map;
     }
 
     @Override
@@ -27,54 +33,67 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
     @Override
     public void addItemToDatabase(Report item) {
-
-        reportsFileManager.exportItem(item);
+        addItemToDatabase(ID++, item);
     }
 
     @Override
-    public void removeItemFromDatabase(Report item) {
-        if (checkDuplicate(item.getReportId())) {
-            data.remove(item);
-            reportsFileManager.deleteItem(ReportsFileManager.makeFilePathFromId(item.getReportId()));
-        }
+    public void addItemToDatabase(int id, Report item) {
+        reportsFileManager.exportItem(id ,item);
+    }
+
+    @Override
+    public void removeItemFromDatabase(int id) {
+        data.remove(id);
     }
 
     @Override
     public Report getItemFromDatabase(int id) {
-        return data.stream()
-                .filter(report -> report.getReportId() == id).findFirst().orElse(null);
+        return data.get(id);
     }
 
     @Override
-    public List<Report> getAll() {
+    public Map<Integer, Report> getAll() {
         return data;
     }
 
     @Override
-    public List<Report> getSorted(Comparator<Report> comparator) {
-        return data.stream().sorted(comparator).toList();
+    public LinkedHashMap<Integer, Report> getSorted(Comparator<Report> comparator, Map<Integer, Report> map) {
+        return map.entrySet().stream()
+                .sorted(((o1, o2) -> comparator.compare(o1.getValue(),o2.getValue())))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey, //object -> object.getKey()
+                        Map.Entry::getValue, //object -> object.getValue()
+                        (o1, o2) -> o1,
+                        LinkedHashMap::new
+                ));
     }
 
     @Override
-    public List<Report> getFiltered(Predicate<Report> filter) {
-        return data.stream().filter(filter).toList();
+    public Map<Integer, Report> getFiltered(Predicate<Report> filter, Map<Integer, Report> map) {
+        return map.entrySet().stream().filter(o -> filter.test(o.getValue()))
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey, //object -> object.getKey()
+                        Map.Entry::getValue, //object -> object.getValue()
+                        (o1, o2) -> o1,
+                        HashMap::new
+                ));
     }
 
     @Override
     public boolean checkDuplicate(int id) {
-        return data.stream().anyMatch(r -> r.getReportId() == id);
+        return false;
     }
 
     @Override
-    public void updateItemInDatabase(Report item) {
-        removeItemFromDatabase(item);
-        addItemToDatabase(item);
+    public void updateItemInDatabase(int id, Report item) {
+        removeItemFromDatabase(id);
+        addItemToDatabase(id, item);
     }
 
     @Override
     public void clearDatabase() {
         data.clear();
-        clearDatabase();
+        reportsFileManager.clearDatabase();
     }
 
 
@@ -86,14 +105,14 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
         private final Path path = Paths.get(folderPath);
         private final List<String> filesList = new ArrayList<>(importFilesList(path));
 
-
-        private static String makeFilePathFromId(int id){
+        private static String getFilePathFromId(int id){
             return folderPath+id+".dat";
         }
 
-        private boolean containsId(int id){
-            refreshFilesList();
-            return filesList.contains(makeFilePathFromId(id));
+        private static int getIdFromFilePath(String filePath){
+            Path path = Paths.get(filePath);
+            String filename = path.getFileName().toString();
+            return Integer.parseInt(filename.split("\\.")[0]);
         }
 
         private void refreshFilesList(){
@@ -102,40 +121,37 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
         }
 
         @Override
-        public List<Report> importDatabase() {
-            return filesList.stream().map(this::importItem).filter(Objects::nonNull).toList();
+        public Map<Integer, Report> importDatabase() {
+            return filesList.stream().map(this::importItem)
+                    .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
         }
 
         @Override
-        public void exportDatabase(List<Report> data) {
+        public void exportDatabase(Map<Integer, Report> data) {
             data.forEach(this::exportItem);
         }
 
         @Override
         public void clearDatabase() {
-            List<String> filesToDelete = new ArrayList<>(filesList); //nie wiem dlaczego bez tego nie działa
-            filesToDelete.forEach(this::deleteItem);
-            refreshFilesList();
+            filesList.stream().map(ReportsFileManager::getIdFromFilePath).forEach(this::deleteItem);
+            filesList.clear();
         }
 
         @Override
-        public void exportItem(Report item) {
-            int id = item.getReportId();
-            String filename = makeFilePathFromId(id);
-            Path itemPath = Paths.get(filename);
+        public void exportItem(int key, Report item) {
+
+            Path itemPath = Path.of(getFilePathFromId(key));
 
             try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(itemPath.toFile()))){
                 out.writeObject(item);
-                filesList.add(filename);
                 //logi - wyeksportowano item
             } catch (IOException e) {
                 //logi - blad podczas eksportu itemu
             }
         }
 
-
         @Override
-        public Report importItem(String path) {
+        public AbstractMap.SimpleEntry<Integer, Report> importItem(String path) {
 
             Path reportPath = Paths.get(path);
 
@@ -145,7 +161,9 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
             }
 
             try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(reportPath.toFile()))) {
-                return (Report) in.readObject();
+                Report report = (Report) in.readObject();
+                int id = getIdFromFilePath(path);
+                return new AbstractMap.SimpleEntry<>(id, report);
                 //logi - wczytano item
             } catch (IOException | ClassNotFoundException e) {
                 //logi - blad podczas wczytywania itemu
@@ -154,8 +172,8 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
         }
 
         @Override
-        public void deleteItem(String path) {
-            Path reportPath = Paths.get(path);
+        public void deleteItem(int id) {
+            Path reportPath = Paths.get(getFilePathFromId(id));
 
             if (!Files.exists(reportPath)) {
                 //logi - że brak pliku
@@ -179,20 +197,26 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
         ReportsFileManager reportsFileManager = new ReportsFileManager();
 
-
-        reportsFileManager.deleteItem("src/main/resources/reports/21.dat");
-        reportsFileManager.exportItem(new Report(42,21,"COSIK", "DASASD"));
-        reportsFileManager.exportItem(new Report(21,21,"COSIK", "DASASD"));
-        reportsFileManager.exportItem(new Report(56,21,"COSIK", "DASASD"));
-        reportsFileManager.exportItem(new Report(12,21,"COSIK", "DASASD"));
+        reportsFileManager.exportItem(12,new Report(42,"COSIK", "DASASD"));
+        reportsFileManager.exportItem(32,new Report(21,"COSIK", "DASASD"));
+        reportsFileManager.exportItem(15,new Report(56,"COSIK", "DASASD"));
+        reportsFileManager.exportItem(66,new Report(12,"COSIK", "DASASD"));
 
 
-        List<Report> reports = reportsFileManager.importDatabase();
-        reports.forEach(System.out::println);
+        Map<Integer, Report> map = reportsFileManager.importDatabase();
+
+        map.forEach((k,v) -> System.out.println(v + " - " + k.toString()));
+
+        reportsFileManager.filesList.forEach(System.out::println);
+
+        reportsFileManager.clearDatabase();
+        reportsFileManager.exportDatabase(map);
+
+
 
 
         reportsFileManager.refreshFilesList();
-        reportsFileManager.clearDatabase();
+        //reportsFileManager.clearDatabase();
 
 
         try {
@@ -205,11 +229,13 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
 
 
-        reportsFileManager.clearDatabase();
+
+
+        //reportsFileManager.clearDatabase();
 
         //reportsFileManager.exportDatabase(reports);
 
-        reports.forEach(System.out::println);
+        //reports.forEach(System.out::println);
 
 
 
