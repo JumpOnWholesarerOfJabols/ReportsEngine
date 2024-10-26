@@ -15,6 +15,10 @@ public interface DatabaseOperations<T> {
 
     T getItemFromDatabase(int id);
 
+    void updateItemInDatabase(T item);
+
+    void clearDatabase();
+
     List<T> getAll();
 
     List<T> getSorted(Comparator<T> comparator);

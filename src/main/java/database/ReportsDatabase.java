@@ -9,12 +9,73 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Predicate;
 
-public class ReportsDatabase /*implements DatabaseOperations<Report>*/ {
+public class ReportsDatabase implements DatabaseOperations<Report> {
 
     private static final ReportsFileManager reportsFileManager = new ReportsFileManager();
 
-    private final List<Report> data = new ArrayList<>(reportsFileManager.importDatabase());
+    private final List<Report> data = new ArrayList<>(importDataFromFile());
 
+    @Override
+    public List<Report> importDataFromFile() {
+        return reportsFileManager.importDatabase();
+    }
+
+    @Override
+    public void exportDataToFile() {
+        reportsFileManager.exportDatabase(data);
+    }
+
+    @Override
+    public void addItemToDatabase(Report item) {
+
+        reportsFileManager.exportItem(item);
+    }
+
+    @Override
+    public void removeItemFromDatabase(Report item) {
+        if (checkDuplicate(item.getReportId())) {
+            data.remove(item);
+            reportsFileManager.deleteItem(ReportsFileManager.makeFilePathFromId(item.getReportId()));
+        }
+    }
+
+    @Override
+    public Report getItemFromDatabase(int id) {
+        return data.stream()
+                .filter(report -> report.getReportId() == id).findFirst().orElse(null);
+    }
+
+    @Override
+    public List<Report> getAll() {
+        return data;
+    }
+
+    @Override
+    public List<Report> getSorted(Comparator<Report> comparator) {
+        return data.stream().sorted(comparator).toList();
+    }
+
+    @Override
+    public List<Report> getFiltered(Predicate<Report> filter) {
+        return data.stream().filter(filter).toList();
+    }
+
+    @Override
+    public boolean checkDuplicate(int id) {
+        return data.stream().anyMatch(r -> r.getReportId() == id);
+    }
+
+    @Override
+    public void updateItemInDatabase(Report item) {
+        removeItemFromDatabase(item);
+        addItemToDatabase(item);
+    }
+
+    @Override
+    public void clearDatabase() {
+        data.clear();
+        clearDatabase();
+    }
 
 
 
