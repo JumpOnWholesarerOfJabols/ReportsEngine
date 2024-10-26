@@ -6,17 +6,26 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.*;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ReportsDatabase implements DatabaseOperations<Report> {
 
-    private static final ReportsFileManager reportsFileManager = new ReportsFileManager();
+    private final ReportsFileManager reportsFileManager;
     private static int ID = 1;
 
-    private final HashMap<Integer,Report> data = new HashMap<>(importDataFromFile());
+    private HashMap<Integer,Report> data;
+
+    public ReportsDatabase(String folderPath) {
+        reportsFileManager = new ReportsFileManager(folderPath);
+        data = new HashMap<>(importDataFromFile());
+    }
+
+    public ReportsDatabase() {
+        this("src/main/resources/reports/");
+    }
 
     @Override
     public Map<Integer,Report> importDataFromFile() {
@@ -100,12 +109,18 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
     private static class ReportsFileManager implements FileManager<Report> {
 
-        private static final String folderPath = "src/main/resources/reports/";
+        private final String folderPath;
+        private final Path path;
+        private ArrayList<String> filesList;
 
-        private final Path path = Paths.get(folderPath);
-        private final List<String> filesList = new ArrayList<>(importFilesList(path));
 
-        private static String getFilePathFromId(int id){
+        private ReportsFileManager(String folderPath) {
+            this.folderPath = folderPath;
+            this.path = Paths.get(folderPath);
+            this.filesList = new ArrayList<>(importFilesList(path));
+        }
+
+        private String getFilePathFromId(int id){
             return folderPath+id+".dat";
         }
 
@@ -122,7 +137,9 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
         @Override
         public Map<Integer, Report> importDatabase() {
-            return filesList.stream().map(this::importItem)
+            this.filesList = new ArrayList<>(importFilesList(path));
+
+            return filesList.isEmpty() ? new HashMap<>() : filesList.stream().map(this::importItem)
                     .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
         }
 
@@ -133,6 +150,8 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
         @Override
         public void clearDatabase() {
+            this.filesList = new ArrayList<>(importFilesList(path));
+
             filesList.stream().map(ReportsFileManager::getIdFromFilePath).forEach(this::deleteItem);
             filesList.clear();
         }
@@ -190,41 +209,93 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
         }
     }
 
+    private static class FilterMethods{
+        private static Predicate<Report> filterUserId(int id){
+            return report -> report.getUserId() == id;
+        }
+
+        private static Predicate<Report> filterReportTitle(String title){
+            return report -> report.getTitle().equals(title);
+        }
+
+        private static Predicate<Report> filterReportTitleFirstLetter(char letter){
+            return report -> report.getTitle().charAt(0) == letter;
+        }
+
+        private static Predicate<Report> filterReportAssigmentWorker(int workerId){
+            return report -> report.getAssignmentWorkerID() == workerId;
+        }
+
+        private static Predicate<Report> filterStatus(Report.reportStatus status){
+            return report -> report.getStatus() == status;
+        }
+
+        private static Predicate<Report> filterStartDate(LocalDate startDate){
+            return report -> report.getDate().isAfter(startDate);
+        }
+
+        private static Predicate<Report> filterEndDate(LocalDate endDate){
+            return report -> report.getDate().isBefore(endDate);
+        }
+
+        private static Predicate<Report> combinedFilter(Predicate<Report> ... filters){
+            Predicate<Report> combinedPredicate = report -> true;
+
+            for (Predicate<Report> filter : filters) {
+                combinedPredicate = combinedPredicate.and(filter);
+            }
+
+            return combinedPredicate;
+        }
+    }
+
+
     public static void main(String[] args) {
 
-        String folderPath = "src/main/resources/reports";
+        ReportsDatabase reportsDatabase = new ReportsDatabase();
+
+
+        String folderPath = "src/main/resources/reports/";
         Path path = Paths.get(folderPath);
 
-        ReportsFileManager reportsFileManager = new ReportsFileManager();
+        ReportsFileManager reportsFileManager = new ReportsFileManager(folderPath);
+
 
         reportsFileManager.exportItem(12,new Report(42,"COSIK", "DASASD"));
-        reportsFileManager.exportItem(32,new Report(21,"COSIK", "DASASD"));
-        reportsFileManager.exportItem(15,new Report(56,"COSIK", "DASASD"));
+        reportsFileManager.exportItem(32,new Report(21,"BOSIK", "DASASD"));
+        reportsFileManager.exportItem(15,new Report(56,"HOSIK", "DASASD"));
         reportsFileManager.exportItem(66,new Report(12,"COSIK", "DASASD"));
+        reportsFileManager.exportItem(54,new Report(12,"GOSIK", "DASASD"));
+        reportsFileManager.exportItem(13,new Report(12,"GOSIK", "DASASD"));
+        reportsFileManager.exportItem(99,new Report(12,"COSIK", "DASASD"));
+        reportsFileManager.exportItem(90,new Report(12,"COSIK", "DASASD"));
+
 
 
         Map<Integer, Report> map = reportsFileManager.importDatabase();
 
-        map.forEach((k,v) -> System.out.println(v + " - " + k.toString()));
+        Map<Integer, Report> filtered = reportsDatabase.
+                getFiltered(ReportsDatabase.FilterMethods.combinedFilter(
+                        ReportsDatabase.FilterMethods.filterUserId(12),
+                        ReportsDatabase.FilterMethods.filterReportTitleFirstLetter('C')
+                ),map);
+        System.out.println("-".repeat(20));
+        filtered.forEach((k,v) -> System.out.println(v + " - " + k.toString()));
+        System.out.println("-".repeat(20));
 
+                map.forEach((k,v) -> System.out.println(v + " - " + k.toString()));
         reportsFileManager.filesList.forEach(System.out::println);
 
         reportsFileManager.clearDatabase();
-        reportsFileManager.exportDatabase(map);
+        //reportsFileManager.exportDatabase(map);
 
 
 
 
-        reportsFileManager.refreshFilesList();
+        //reportsFileManager.refreshFilesList();
         //reportsFileManager.clearDatabase();
 
 
-        try {
-            List<String> nazwy = Files.list(path).map(Path::toString).toList();
-            nazwy.forEach(System.out::println);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
 
 
 

@@ -2,6 +2,7 @@ package main.java.classes;
 
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.Date;
 
 public class Report implements Serializable {
@@ -13,7 +14,7 @@ public class Report implements Serializable {
     private String description;
     private int assignmentWorkerId;
     private reportStatus status;
-    private String date;
+    private LocalDate date;
 
     private static String getCurrentDate(){
         SimpleDateFormat dayMonthYear = new SimpleDateFormat("dd/MM/yyyy");
@@ -26,14 +27,14 @@ public class Report implements Serializable {
         this.description = description;
         this.assignmentWorkerId = -1;
         this.status = reportStatus.OPEN;
-        this.date = getCurrentDate();
+        this.date = LocalDate.now();
     }
 
     public int getUserId() {
         return userId;
     }
 
-    public String getDate() {
+    public LocalDate getDate() {
         return date;
     }
 
