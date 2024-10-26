@@ -8,27 +8,25 @@ public class Report implements Serializable {
 
     public enum reportStatus{OPEN,ASSIGNED,CLOSED}
 
-    private int reportId;
-    private int userId;
+    private final int reportId;
+    private final int userId;
     private String title;
     private String description;
-    private int assignmentWorkerID;
+    private int assignmentWorkerId;
     private reportStatus status;
     private String date;
-
-    private static int reportIdCounter = 1;
 
     private static String getCurrentDate(){
         SimpleDateFormat dayMonthYear = new SimpleDateFormat("dd/MM/yyyy");
         return dayMonthYear.format(new Date());
     }
 
-    public Report(int userID, String title, String description) {
-        this.reportId = reportIdCounter++;
+    public Report(int reportId, int userID, String title, String description) {
+        this.reportId = reportId;
         this.userId = userID;
         this.title = title;
         this.description = description;
-        this.assignmentWorkerID = -1;
+        this.assignmentWorkerId = -1;
         this.status = reportStatus.OPEN;
         this.date = getCurrentDate();
     }
@@ -62,11 +60,11 @@ public class Report implements Serializable {
     }
 
     public int getAssignmentWorkerID() {
-        return assignmentWorkerID;
+        return assignmentWorkerId;
     }
 
     public void setAssignmentWorkerID(int assignmentWorkerID) {
-        this.assignmentWorkerID = assignmentWorkerID;
+        this.assignmentWorkerId = assignmentWorkerID;
     }
 
     public reportStatus getStatus() {
