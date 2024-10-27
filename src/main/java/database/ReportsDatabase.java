@@ -12,15 +12,14 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ReportsDatabase implements DatabaseOperations<Report> {
-
     private final ReportsFileManager reportsFileManager;
     private static int ID = 1;
 
-    private HashMap<Integer,Report> data;
+    private final Map<Integer, Report> data;
 
     public ReportsDatabase(String folderPath) {
         reportsFileManager = new ReportsFileManager(folderPath);
-        data = new HashMap<>(importDataFromFile());
+        data = importDataFromFile();
     }
 
     public ReportsDatabase() {
@@ -28,8 +27,8 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
     }
 
     @Override
-    public Map<Integer,Report> importDataFromFile() {
-        Map<Integer,Report> map = reportsFileManager.importDatabase();
+    public Map<Integer, Report> importDataFromFile() {
+        Map<Integer, Report> map = reportsFileManager.importDatabase();
         ID = map.keySet().stream().max(Integer::compareTo).orElse(0) + 1;
 
         return map;
@@ -47,12 +46,14 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
     @Override
     public void addItemToDatabase(int id, Report item) {
-        reportsFileManager.exportItem(id ,item);
+        data.put(id, item);
+        reportsFileManager.exportItem(id, item);
     }
 
     @Override
     public void removeItemFromDatabase(int id) {
         data.remove(id);
+        reportsFileManager.deleteItem(id);
     }
 
     @Override
@@ -66,9 +67,9 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
     }
 
     @Override
-    public LinkedHashMap<Integer, Report> getSorted(Comparator<Report> comparator, Map<Integer, Report> map) {
-        return map.entrySet().stream()
-                .sorted(((o1, o2) -> comparator.compare(o1.getValue(),o2.getValue())))
+    public LinkedHashMap<Integer, Report> getSorted(Comparator<Report> comparator) {
+        return data.entrySet().stream()
+                .sorted(((o1, o2) -> comparator.compare(o1.getValue(), o2.getValue())))
                 .collect(Collectors.toMap(
                         Map.Entry::getKey, //object -> object.getKey()
                         Map.Entry::getValue, //object -> object.getValue()
@@ -78,8 +79,8 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
     }
 
     @Override
-    public Map<Integer, Report> getFiltered(Predicate<Report> filter, Map<Integer, Report> map) {
-        return map.entrySet().stream().filter(o -> filter.test(o.getValue()))
+    public Map<Integer, Report> getFiltered(Predicate<Report> filter) {
+        return data.entrySet().stream().filter(o -> filter.test(o.getValue()))
                 .collect(Collectors.toMap(
                         Map.Entry::getKey, //object -> object.getKey()
                         Map.Entry::getValue, //object -> object.getValue()
@@ -106,38 +107,35 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
     }
 
 
-
     private static class ReportsFileManager implements FileManager<Report> {
-
         private final String folderPath;
         private final Path path;
-        private ArrayList<String> filesList;
-
+        private List<String> filesList;
 
         private ReportsFileManager(String folderPath) {
             this.folderPath = folderPath;
             this.path = Paths.get(folderPath);
-            this.filesList = new ArrayList<>(importFilesList(path));
+            this.filesList = importFilesList(path);
         }
 
-        private String getFilePathFromId(int id){
-            return folderPath+id+".dat";
+        private String getFilePathFromId(int id) {
+            return folderPath + id + ".dat";
         }
 
-        private static int getIdFromFilePath(String filePath){
+        private static int getIdFromFilePath(String filePath) {
             Path path = Paths.get(filePath);
             String filename = path.getFileName().toString();
             return Integer.parseInt(filename.split("\\.")[0]);
         }
 
-        private void refreshFilesList(){
+        private void refreshFilesList() {
             filesList.clear();
             filesList.addAll(importFilesList(path));
         }
 
         @Override
         public Map<Integer, Report> importDatabase() {
-            this.filesList = new ArrayList<>(importFilesList(path));
+            this.filesList = importFilesList(path);
 
             return filesList.isEmpty() ? new HashMap<>() : filesList.stream().map(this::importItem)
                     .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
@@ -158,10 +156,9 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
         @Override
         public void exportItem(int key, Report item) {
-
             Path itemPath = Path.of(getFilePathFromId(key));
 
-            try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(itemPath.toFile()))){
+            try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(itemPath.toFile()))) {
                 out.writeObject(item);
                 //logi - wyeksportowano item
             } catch (IOException e) {
@@ -171,7 +168,6 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
         @Override
         public AbstractMap.SimpleEntry<Integer, Report> importItem(String path) {
-
             Path reportPath = Paths.get(path);
 
             if (!Files.exists(reportPath)) {
@@ -201,156 +197,11 @@ public class ReportsDatabase implements DatabaseOperations<Report> {
 
             try {
                 Files.delete(reportPath);
-                filesList.remove(path);
+                filesList.remove(path.toString());
                 //logi ze usuwamy plik
             } catch (IOException e) {
                 // logi ze jakiś blad
             }
         }
-    }
-
-    private static class FilterMethods{
-        private static Predicate<Report> filterUserId(int id){
-            return report -> report.getUserId() == id;
-        }
-
-        private static Predicate<Report> filterReportTitle(String title){
-            return report -> report.getTitle().equals(title);
-        }
-
-        private static Predicate<Report> filterReportTitleFirstLetter(char letter){
-            return report -> report.getTitle().charAt(0) == letter;
-        }
-
-        private static Predicate<Report> filterReportAssigmentWorker(int workerId){
-            return report -> report.getAssignmentWorkerID() == workerId;
-        }
-
-        private static Predicate<Report> filterStatus(Report.reportStatus status){
-            return report -> report.getStatus() == status;
-        }
-
-        private static Predicate<Report> filterStartDate(LocalDate startDate){
-            return report -> report.getDate().isAfter(startDate);
-        }
-
-        private static Predicate<Report> filterEndDate(LocalDate endDate){
-            return report -> report.getDate().isBefore(endDate);
-        }
-
-        private static Predicate<Report> combinedFilter(Predicate<Report> ... filters){
-            Predicate<Report> combinedPredicate = report -> true;
-
-            for (Predicate<Report> filter : filters) {
-                combinedPredicate = combinedPredicate.and(filter);
-            }
-
-            return combinedPredicate;
-        }
-    }
-
-    private static class SortMethods {
-
-        private static Comparator<Report> sortByUserId() {
-            return Comparator.comparingInt(Report::getUserId);
-        }
-
-        private static Comparator<Report> sortByTitle() {
-            return Comparator.comparing(Report::getTitle);
-        }
-
-        private static Comparator<Report> sortByAssignmentWorkerId() {
-            return Comparator.comparingInt(Report::getAssignmentWorkerID);
-        }
-
-        private static Comparator<Report> sortByStatus() {
-            return Comparator.comparing(Report::getStatus);
-        }
-
-        private static Comparator<Report> sortByDate() {
-            return Comparator.comparing(Report::getDate);
-        }
-
-        private static Comparator<Report> reversed(Comparator<Report> comparator) {
-            return comparator.reversed();
-        }
-
-        private static Comparator<Report> combinedSort(Comparator<Report>... comparators) {
-            Comparator<Report> combinedComparator = (report1, report2) -> 0;
-
-            for (Comparator<Report> comparator : comparators) {
-                combinedComparator = combinedComparator.thenComparing(comparator);
-            }
-
-            return combinedComparator;
-        }
-    }
-
-
-    public static void main(String[] args) {
-
-        ReportsDatabase reportsDatabase = new ReportsDatabase();
-
-
-        String folderPath = "src/main/resources/reports/";
-        Path path = Paths.get(folderPath);
-
-        ReportsFileManager reportsFileManager = new ReportsFileManager(folderPath);
-
-
-        reportsFileManager.exportItem(12,new Report(42,"COSIK", "DASASD"));
-        reportsFileManager.exportItem(32,new Report(21,"BOSIK", "DASASD"));
-        reportsFileManager.exportItem(15,new Report(56,"HOSIK", "DASASD"));
-        reportsFileManager.exportItem(66,new Report(12,"COSIK", "DASASD"));
-        reportsFileManager.exportItem(54,new Report(12,"GOSIK", "DASASD"));
-        reportsFileManager.exportItem(13,new Report(12,"GOSIK", "DASASD"));
-        reportsFileManager.exportItem(99,new Report(12,"COSIK", "DASASD"));
-        reportsFileManager.exportItem(90,new Report(12,"COSIK", "DASASD"));
-
-
-
-        Map<Integer, Report> map = reportsFileManager.importDatabase();
-
-        Map<Integer, Report> filtered = reportsDatabase.
-                getFiltered(ReportsDatabase.FilterMethods.combinedFilter(
-                        ReportsDatabase.FilterMethods.filterUserId(12),
-                        ReportsDatabase.FilterMethods.filterReportTitleFirstLetter('C')
-                ),map);
-        System.out.println("-".repeat(20));
-        filtered.forEach((k,v) -> System.out.println(v + " - " + k.toString()));
-        System.out.println("-".repeat(20));
-        var sorted = reportsDatabase.getSorted(ReportsDatabase.SortMethods.sortByUserId(),map);
-        sorted.forEach((k,v) -> System.out.println(k + " - " + v.toString()));
-        System.out.println("-".repeat(20));
-
-                map.forEach((k,v) -> System.out.println(v + " - " + k.toString()));
-        reportsFileManager.filesList.forEach(System.out::println);
-
-        reportsFileManager.clearDatabase();
-        //reportsFileManager.exportDatabase(map);
-
-
-
-
-        //reportsFileManager.refreshFilesList();
-        //reportsFileManager.clearDatabase();
-
-
-
-
-
-
-
-
-        //reportsFileManager.clearDatabase();
-
-        //reportsFileManager.exportDatabase(reports);
-
-        //reports.forEach(System.out::println);
-
-
-
-
-        //TUTAJ CHYBA WSZYSTKO DZIAŁA
     }
 }

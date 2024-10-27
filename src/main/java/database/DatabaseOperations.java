@@ -27,9 +27,9 @@ public interface DatabaseOperations<T> {
 
     Map<Integer, T> getAll();
 
-    LinkedHashMap<Integer, T> getSorted(Comparator<T> comparator, Map<Integer, T> map);
+    LinkedHashMap<Integer, T> getSorted(Comparator<T> comparator);
 
-    Map<Integer, T>  getFiltered(Predicate<T> filter, Map<Integer, T> map);
+    Map<Integer, T>  getFiltered(Predicate<T> filter);
 
     boolean checkDuplicate(int id);
 }
